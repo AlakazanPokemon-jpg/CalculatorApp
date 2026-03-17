@@ -3,166 +3,216 @@ package com.example.calculatorapp
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableDoubleStateOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-//import androidx.compose.ui.tooling.preview.Preview
+import com.example.calculatorapp.ui.theme.CalculatorAppTheme
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
         setContent {
-            MaterialTheme {
-                CalculadoraApp()
+            CalculatorAppTheme {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = Color(0xFF121212) // Fundo moderno escuro (Dark Mode)
+                ) {
+                    CalculadoraScreen()
+                }
             }
         }
     }
 }
 
-//@Preview(showBackground = true, showSystemUi = true)
-//@Composable
-//fun CalculadoraPreview() {
-//    MaterialTheme {
-//        CalculadoraApp()
-//    }
-//}
-
 @Composable
-fun CalculadoraApp() {
+fun CalculadoraScreen() {
+    // --- ESTADOS ---
+    var displayValue by remember { mutableStateOf("0") }
+    var primeiroValor by remember { mutableStateOf<Double?>(null) }
+    var operador by remember { mutableStateOf<String?>(null) }
+    var aguardandoProximoNumero by remember { mutableStateOf(false) }
 
-    var display by remember { mutableStateOf("0") }
-    var operacao by remember { mutableStateOf("") }
-    var numeroAnterior by remember { mutableDoubleStateOf(0.0) }
-    var novoNumero by remember { mutableStateOf(true) }
+    // --- LÓGICA DO VISOR COMPLETO ---
+    // Esta variável avalia os estados e monta a frase "1 + 3" para a tela
+    val textoVisor = if (primeiroValor != null && operador != null) {
+        // Tira o .0 do primeiro valor se for inteiro para ficar bonito na tela
+        val primeiroFormatado = if (primeiroValor!! % 1.0 == 0.0) {
+            primeiroValor!!.toLong().toString()
+        } else {
+            primeiroValor!!.toString()
+        }
 
+        if (aguardandoProximoNumero) {
+            "$primeiroFormatado $operador " // Mostra ex: "1 + "
+        } else {
+            "$primeiroFormatado $operador $displayValue" // Mostra ex: "1 + 3"
+        }
+    } else {
+        displayValue // Mostra só o número atual se não tiver operador
+    }
+
+    // --- FUNÇÕES DE AÇÃO ---
     fun onNumeroClick(numero: String) {
-        display = if (novoNumero) {
-            novoNumero = false
-            numero
+        if (displayValue == "0" || aguardandoProximoNumero) {
+            displayValue = numero
+            aguardandoProximoNumero = false
         } else {
-            display + numero
+            if (displayValue.length < 10) {
+                displayValue += numero
+            }
         }
     }
 
-    fun onOperacaoClick(op: String) {
-        numeroAnterior = display.toDoubleOrNull() ?: 0.0
-        operacao = op
-        novoNumero = true
+    fun onOperadorClick(op: String) {
+        primeiroValor = displayValue.toDoubleOrNull()
+        operador = op
+        aguardandoProximoNumero = true
     }
 
-    fun calcularResultado() {
-        val numeroAtual = display.toDoubleOrNull() ?: 0.0
+    fun onLimparClick() {
+        displayValue = "0"
+        primeiroValor = null
+        operador = null
+        aguardandoProximoNumero = false
+    }
 
-        val resultado = when (operacao) {
-            "+" -> numeroAnterior + numeroAtual
-            "-" -> numeroAnterior - numeroAtual
-            "×" -> numeroAnterior * numeroAtual
-            "÷" -> if (numeroAtual != 0.0) numeroAnterior / numeroAtual else 0.0
-            else -> numeroAtual
+    fun onIgualClick() {
+        val segundoValor = displayValue.toDoubleOrNull()
+
+        if (primeiroValor != null && segundoValor != null && operador != null) {
+            val resultado = when (operador) {
+                "+" -> primeiroValor!! + segundoValor
+                "-" -> primeiroValor!! - segundoValor
+                "*" -> primeiroValor!! * segundoValor
+                "/" -> if (segundoValor != 0.0) primeiroValor!! / segundoValor else Double.NaN
+                else -> 0.0
+            }
+
+            val resultadoFormatado = if (resultado % 1.0 == 0.0) {
+                resultado.toLong().toString()
+            } else {
+                resultado.toString()
+            }
+
+            displayValue = if (resultadoFormatado.length > 15) {
+                "Erro"
+            } else {
+                resultadoFormatado
+            }
+
+            primeiroValor = null
+            operador = null
+            aguardandoProximoNumero = true
         }
-
-        display = if (resultado % 1.0 == 0.0) {
-            resultado.toInt().toString()
-        } else {
-            resultado.toString()
-        }
-
-        novoNumero = true
     }
 
-    fun limpar() {
-        display = "0"
-        operacao = ""
-        numeroAnterior = 0.0
-        novoNumero = true
-    }
+    // --- CORES DA UI ---
+    val corNumero = Color(0xFF333333)
+    val corOperador = Color(0xFFFF9500)
+    val corLimpar = Color(0xFFD32F2F)
+    val corTextoBranco = Color.White
 
+    // --- INTERFACE VISUAL ---
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black)
-            .padding(16.dp),
-        verticalArrangement = Arrangement.SpaceBetween
+            .padding(24.dp),
+        verticalArrangement = Arrangement.Bottom
     ) {
-
-        // DISPLAY
+        // Visor (Agora usa a variável textoVisor)
         Text(
-            text = display,
-            fontSize = 48.sp,
-            color = Color.White,
+            text = textoVisor,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
-            textAlign = TextAlign.End
+                .padding(bottom = 32.dp),
+            textAlign = TextAlign.End,
+            color = corTextoBranco,
+            fontSize = 64.sp, // Fonte levemente menor para caber toda a expressão
+            fontWeight = FontWeight.Light,
+            maxLines = 2 // Permite que a conta quebre linha se for muito grande
         )
 
-        // BOTÕES
-        val botoes = listOf(
-            listOf("7", "8", "9", "÷"),
-            listOf("4", "5", "6", "×"),
-            listOf("1", "2", "3", "-"),
-            listOf("C", "0", "=", "+")
-        )
+        // Linha 1
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            CalculadoraBotao("7", Modifier.weight(1f), corNumero) { onNumeroClick("7") }
+            CalculadoraBotao("8", Modifier.weight(1f), corNumero) { onNumeroClick("8") }
+            CalculadoraBotao("9", Modifier.weight(1f), corNumero) { onNumeroClick("9") }
+            CalculadoraBotao("/", Modifier.weight(1f), corOperador) { onOperadorClick("/") }
+        }
 
-        Column {
-            botoes.forEach { linha ->
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly
-                ) {
-                    linha.forEach { texto ->
-                        Button(
-                            onClick = {
-                                when (texto) {
-                                    in "0".."9" -> onNumeroClick(texto)
-                                    "+", "-", "×", "÷" -> onOperacaoClick(texto)
-                                    "=" -> calcularResultado()
-                                    "C" -> limpar()
-                                }
-                            },
-                            modifier = Modifier
-                                .padding(8.dp)
-                                .weight(1f)
-                                .height(80.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = when (texto) {
-                                    in "0".."9" -> Color.DarkGray
-                                    "C" -> Color.Red
-                                    "=" -> Color(0xFF4CAF50)
-                                    else -> Color(0xFFFF9800)
-                                }
-                            )
-                        ) {
-                            Text(
-                                text = texto,
-                                fontSize = 24.sp,
-                                color = Color.White
-                            )
-                        }
-                    }
-                }
-            }
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Linha 2
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            CalculadoraBotao("4", Modifier.weight(1f), corNumero) { onNumeroClick("4") }
+            CalculadoraBotao("5", Modifier.weight(1f), corNumero) { onNumeroClick("5") }
+            CalculadoraBotao("6", Modifier.weight(1f), corNumero) { onNumeroClick("6") }
+            CalculadoraBotao("*", Modifier.weight(1f), corOperador) { onOperadorClick("*") }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Linha 3
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            CalculadoraBotao("1", Modifier.weight(1f), corNumero) { onNumeroClick("1") }
+            CalculadoraBotao("2", Modifier.weight(1f), corNumero) { onNumeroClick("2") }
+            CalculadoraBotao("3", Modifier.weight(1f), corNumero) { onNumeroClick("3") }
+            CalculadoraBotao("-", Modifier.weight(1f), corOperador) { onOperadorClick("-") }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Linha 4
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            CalculadoraBotao("0", Modifier.weight(1f), corNumero) { onNumeroClick("0") }
+            CalculadoraBotao("C", Modifier.weight(1f), corLimpar) { onLimparClick() }
+            CalculadoraBotao("=", Modifier.weight(1f), corOperador) { onIgualClick() }
+            CalculadoraBotao("+", Modifier.weight(1f), corOperador) { onOperadorClick("+") }
+        }
+    }
+}
+
+@Composable
+fun CalculadoraBotao(
+    simbolo: String,
+    modifier: Modifier = Modifier,
+    corFundo: Color,
+    onClick: () -> Unit
+) {
+    Button(
+        onClick = onClick,
+        modifier = modifier.height(84.dp),
+        shape = RoundedCornerShape(24.dp),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = corFundo
+        )
+    ) {
+        Text(
+            text = simbolo,
+            fontSize = 32.sp,
+            fontWeight = FontWeight.Medium,
+            color = Color.White
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun CalculadoraPreview() {
+    CalculatorAppTheme {
+        Surface(color = Color(0xFF121212)) {
+            CalculadoraScreen()
         }
     }
 }
